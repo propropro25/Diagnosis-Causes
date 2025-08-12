@@ -3,97 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Gallery</title>
+  <title>Unknown Causes</title>
 
   <!-- Lightbox (baguetteBox) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
-
-  <!-- Optional slider (tiny-slider). Leave if you want slider mode available. -->
+  <!-- Optional slider (tiny-slider) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tiny-slider@2.9.4/dist/tiny-slider.css">
 
   <style>
-    /* Scope everything to avoid Ghost/theme conflicts */
-    #gh-gallery { --gap:16px; --thumb:260px; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    #gh-gallery * { box-sizing: border-box; }
-    #gh-gallery a { color: inherit; text-decoration: none; }
-
-    /* Grid mode */
-    #gh-gallery .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--thumb), 1fr));
-      gap: var(--gap);
-    }
-    #gh-gallery .card {
-      display:block; border-radius:10px; overflow:hidden; background:#111;
-      box-shadow: 0 8px 18px rgba(0,0,0,.12);
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
-    #gh-gallery .card:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(0,0,0,.2); }
-    #gh-gallery .thumb {
-      display:block; width:100%; height:200px; object-fit:cover; background:#000;
-    }
-
-    /* Slider mode container */
-    #gh-gallery .slider { margin: 0 auto; }
-    #gh-gallery .slide {
-      position:relative; overflow:hidden; border-radius:10px;
-    }
-    #gh-gallery .slide img { width:100%; height:70vh; object-fit:contain; background:#000; }
-
-    /* Minimal page padding */
+    #gh-gallery { --gap:16px; --thumb:260px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    #gh-gallery * { box-sizing:border-box; }
+    #gh-gallery a { color:inherit; text-decoration:none; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--thumb),1fr)); gap:var(--gap); }
+    .card { display:block; border-radius:10px; overflow:hidden; background:#111; box-shadow:0 8px 18px rgba(0,0,0,.12); transition:transform .15s, box-shadow .15s; }
+    .card:hover { transform:translateY(-4px); box-shadow:0 12px 26px rgba(0,0,0,.2); }
+    .thumb { display:block; width:100%; height:200px; object-fit:cover; background:#000; }
+    .slider { margin:0 auto; }
+    .slide { position:relative; overflow:hidden; border-radius:10px; }
+    .slide img { width:100%; height:70vh; object-fit:contain; background:#000; }
     body { margin:0; background:#0b0b0b; color:#f0f0f0; }
     #gh-gallery { max-width:1200px; margin:40px auto; padding:0 16px; }
-    #gh-gallery .sr { position:absolute; left:-9999px; }
+    #status { margin-top:12px; opacity:.7; }
   </style>
 </head>
 <body>
   <div id="gh-gallery" aria-live="polite">
     <h1 style="margin:0 0 20px;font-size:18px;font-weight:600;">Gallery</h1>
     <div id="gallery-root"></div>
-    <div id="status" style="margin-top:12px;opacity:.7;"></div>
+    <div id="status"></div>
   </div>
 
-  <!-- Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tiny-slider@2.9.4/dist/min/tiny-slider.js"></script>
 
   <script>
-    // ===================== CONFIG =====================
     const CONFIG = {
-      owner: "OWNER",          // e.g. "your-username"
-      repo:  "REPO",           // e.g. "screenshots"
-      path:  "PATH",           // e.g. "album" or "" for repo root
-      branch:"BRANCH",         // e.g. "main"
-      mode:  "grid",           // "grid" (lightbox) or "slider"
+      owner: "propropro25",
+      repo:  "Diagnosis-Causes",
+      path:  "",          // subfolder name if images are inside one
+      branch:"main",
+      mode:  "grid",      // "grid" or "slider"
       exts:  [".png",".jpg",".jpeg",".webp",".gif"],
-      sort:  "name-asc"        // "name-asc" | "name-desc" | "time-asc" | "time-desc"
+      sort:  "name-asc"   // "name-asc" | "name-desc" | "time-asc" | "time-desc"
     };
-    // ==================================================
 
     const status = msg => document.getElementById('status').textContent = msg || "";
 
     async function listRepoImages() {
-      const api = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${encodeURIComponent(CONFIG.path) || ''}?ref=${encodeURIComponent(CONFIG.branch)}`;
+      const api = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${encodeURIComponent(CONFIG.path)}?ref=${encodeURIComponent(CONFIG.branch)}`;
       const res = await fetch(api);
       if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-      /** @type {{name:string,download_url:string,git_url:string,sha:string, type:string}} */
       const items = await res.json();
-      const imgs = items.filter(x =>
-        x.type === "file" &&
-        CONFIG.exts.some(ext => x.name.toLowerCase().endsWith(ext))
-      );
-      // Optional: fetch commit times for stable time sort
-      if (CONFIG.sort.startsWith("time")) {
-        await Promise.all(imgs.map(async it => {
-          const r = await fetch(`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/commits?path=${encodeURIComponent(CONFIG.path ? CONFIG.path + '/' + it.name : it.name)}&sha=${CONFIG.branch}&per_page=1`);
-          it._time = (await r.json())[0]?.commit?.committer?.date || "";
-        }));
-      }
+      const imgs = items.filter(x => x.type === "file" && CONFIG.exts.some(ext => x.name.toLowerCase().endsWith(ext)));
       imgs.sort((a,b) => {
         if (CONFIG.sort === "name-asc")  return a.name.localeCompare(b.name, undefined, {numeric:true});
         if (CONFIG.sort === "name-desc") return b.name.localeCompare(a.name, undefined, {numeric:true});
-        if (CONFIG.sort === "time-asc")  return (a._time||"").localeCompare(b._time||"");
-        if (CONFIG.sort === "time-desc") return (b._time||"").localeCompare(a._time||"");
         return 0;
       });
       return imgs.map(it => ({ src: it.download_url, alt: it.name }));
@@ -108,7 +72,7 @@
                <img class="thumb" src="${im.src}" alt="${im.alt}" loading="lazy" decoding="async">
              </a>`).join('')}
          </div>`;
-      baguetteBox.run('#gallery-root .tz-gallery', {noScrollbars: true, async: true});
+      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
     }
 
     function renderSlider(images) {
@@ -120,13 +84,8 @@
                <img src="${im.src}" alt="${im.alt}" loading="lazy" decoding="async">
              </a></div>`).join('')}
          </div>`;
-      tns({
-        container: '.my-slider',
-        items: 1, slideBy: 1, autoplay: true, autoplayButtonOutput:false,
-        controls: true, nav: true, lazyload: false, gutter: 10, edgePadding: 0
-      });
-      // Lightbox on click of slide
-      baguetteBox.run('#gallery-root', {filter: /./});
+      tns({ container:'.my-slider', items:1, slideBy:1, autoplay:true, autoplayButtonOutput:false, controls:true, nav:true });
+      baguetteBox.run('#gallery-root', { filter:/./ });
     }
 
     (async function main(){
@@ -138,7 +97,7 @@
         status("");
       } catch (e) {
         console.error(e);
-        status("Failed to load images. Check repo, path, or API rate limit.");
+        status("Failed to load images. Check repo/path/branch or API limit.");
       }
     })();
   </script>
