@@ -1,105 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Unknown Causes</title>
-
-  <!-- Lightbox (baguetteBox) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
-  <!-- Optional slider (tiny-slider) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tiny-slider@2.9.4/dist/tiny-slider.css">
-
-  <style>
-    #gh-gallery { --gap:16px; --thumb:260px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-    #gh-gallery * { box-sizing:border-box; }
-    #gh-gallery a { color:inherit; text-decoration:none; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--thumb),1fr)); gap:var(--gap); }
-    .card { display:block; border-radius:10px; overflow:hidden; background:#111; box-shadow:0 8px 18px rgba(0,0,0,.12); transition:transform .15s, box-shadow .15s; }
-    .card:hover { transform:translateY(-4px); box-shadow:0 12px 26px rgba(0,0,0,.2); }
-    .thumb { display:block; width:100%; height:200px; object-fit:cover; background:#000; }
-    .slider { margin:0 auto; }
-    .slide { position:relative; overflow:hidden; border-radius:10px; }
-    .slide img { width:100%; height:70vh; object-fit:contain; background:#000; }
-    body { margin:0; background:#0b0b0b; color:#f0f0f0; }
-    #gh-gallery { max-width:1200px; margin:40px auto; padding:0 16px; }
-    #status { margin-top:12px; opacity:.7; }
-  </style>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Gallery</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #gh-gallery{max-width:1100px;margin:28px auto;padding:0 16px}
+  #hero{position:relative;background:#000;border-radius:12px;overflow:hidden}
+  #hero img{display:block;width:100%;height:58vh;max-height:720px;object-fit:contain;background:#000}
+  #hero .caption{position:absolute;left:12px;bottom:10px;font-size:12px;opacity:.7}
+  #thumbs{margin-top:10px;display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+  #thumbs a{display:block;flex:0 0 auto;border-radius:10px;overflow:hidden;outline:0}
+  #thumbs img{display:block;height:90px;width:auto;object-fit:cover;background:#000;transition:opacity .15s}
+  #thumbs a[aria-current="true"] img{outline:2px solid #5aa2ff;opacity:1}
+  #thumbs img{opacity:.85}
+  #thumbs a:hover img{opacity:1}
+  #status{margin-top:8px;opacity:.6}
+  .sr{position:absolute;left:-9999px}
+  .hide{display:none}
+  /* optional max width for Ghost embed */
+  @media (max-width:640px){#hero img{height:55vh} #thumbs img{height:74px}}
+</style>
 </head>
 <body>
-  <div id="gh-gallery" aria-live="polite">
-    <h1 style="margin:0 0 20px;font-size:18px;font-weight:600;">Gallery</h1>
-    <div id="gallery-root"></div>
-    <div id="status"></div>
+<div id="gh-gallery" aria-live="polite">
+  <h1 style="margin:0 0 14px;font-size:18px;font-weight:600">Gallery</h1>
+  <div id="hero" class="hide">
+    <a id="heroLink" href="#" data-caption="">
+      <img id="heroImg" src="" alt=""/>
+    </a>
+    <div id="heroCap" class="caption"></div>
   </div>
+  <div id="thumbs" class="tz-gallery hide" role="listbox" aria-label="Thumbnails"></div>
+  <div id="status"></div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tiny-slider@2.9.4/dist/min/tiny-slider.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
+<script>
+const CFG={owner:"propropro25",repo:"Diagnosis-Causes",path:"",branch:"main",
+           exts:[".png",".jpg",".jpeg",".webp",".gif"],sort:"name-asc"};
+const S=t=>document.getElementById("status").textContent=t||"";
+let imgs=[],idx=0;
 
-  <script>
-    const CONFIG = {
-      owner: "propropro25",
-      repo:  "Diagnosis-Causes",
-      path:  "",          // subfolder name if images are inside one
-      branch:"main",
-      mode:  "grid",      // "grid" or "slider"
-      exts:  [".png",".jpg",".jpeg",".webp",".gif"],
-      sort:  "name-asc"   // "name-asc" | "name-desc" | "time-asc" | "time-desc"
-    };
+async function list(){
+  const api=`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${encodeURIComponent(CFG.path)}?ref=${CFG.branch}`;
+  const r=await fetch(api); if(!r.ok) throw new Error("GitHub API "+r.status);
+  const items=await r.json();
+  return items.filter(x=>x.type==="file" && CFG.exts.some(e=>x.name.toLowerCase().endsWith(e)))
+              .sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}))
+              .map(x=>({src:x.download_url,alt:x.name}));
+}
 
-    const status = msg => document.getElementById('status').textContent = msg || "";
+function render(){
+  const hero=document.getElementById('hero');
+  const heroImg=document.getElementById('heroImg');
+  const heroLink=document.getElementById('heroLink');
+  const heroCap=document.getElementById('heroCap');
+  const strip=document.getElementById('thumbs');
 
-    async function listRepoImages() {
-      const api = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${encodeURIComponent(CONFIG.path)}?ref=${encodeURIComponent(CONFIG.branch)}`;
-      const res = await fetch(api);
-      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-      const items = await res.json();
-      const imgs = items.filter(x => x.type === "file" && CONFIG.exts.some(ext => x.name.toLowerCase().endsWith(ext)));
-      imgs.sort((a,b) => {
-        if (CONFIG.sort === "name-asc")  return a.name.localeCompare(b.name, undefined, {numeric:true});
-        if (CONFIG.sort === "name-desc") return b.name.localeCompare(a.name, undefined, {numeric:true});
-        return 0;
-      });
-      return imgs.map(it => ({ src: it.download_url, alt: it.name }));
-    }
+  // hero
+  const cur=imgs[idx];
+  heroImg.src=cur.src; heroImg.alt=cur.alt;
+  heroLink.href=cur.src; heroLink.dataset.caption=cur.alt;
+  heroCap.textContent=cur.alt;
+  hero.classList.remove('hide');
 
-    function renderGrid(images) {
-      const root = document.getElementById('gallery-root');
-      root.innerHTML =
-        `<div class="grid tz-gallery">
-           ${images.map(im => `
-             <a class="card" href="${im.src}" data-caption="${im.alt}">
-               <img class="thumb" src="${im.src}" alt="${im.alt}" loading="lazy" decoding="async">
-             </a>`).join('')}
-         </div>`;
-      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
-    }
+  // thumbs
+  strip.innerHTML = imgs.map((im,i)=>
+    `<a href="${im.src}" data-caption="${im.alt}" role="option" aria-selected="${i===idx}" aria-current="${i===idx?'true':'false'}">
+       <img src="${im.src}" alt="${im.alt}" loading="lazy" decoding="async">
+     </a>`).join('');
+  strip.classList.remove('hide');
 
-    function renderSlider(images) {
-      const root = document.getElementById('gallery-root');
-      root.innerHTML =
-        `<div class="slider my-slider">
-           ${images.map(im => `
-             <div class="slide"><a href="${im.src}">
-               <img src="${im.src}" alt="${im.alt}" loading="lazy" decoding="async">
-             </a></div>`).join('')}
-         </div>`;
-      tns({ container:'.my-slider', items:1, slideBy:1, autoplay:true, autoplayButtonOutput:false, controls:true, nav:true });
-      baguetteBox.run('#gallery-root', { filter:/./ });
-    }
+  // thumb click -> swap hero
+  [...strip.querySelectorAll('a')].forEach((a,i)=>{
+    a.addEventListener('click',ev=>{
+      ev.preventDefault();
+      idx=i; render();
+      // open lightbox if user clicked a selected thumb again (optional)
+    }, {passive:false});
+  });
 
-    (async function main(){
-      try {
-        status("Loading images…");
-        const images = await listRepoImages();
-        status(`${images.length} image(s)`);
-        (CONFIG.mode === "slider" ? renderSlider : renderGrid)(images);
-        status("");
-      } catch (e) {
-        console.error(e);
-        status("Failed to load images. Check repo/path/branch or API limit.");
-      }
-    })();
-  </script>
+  // lightbox on hero click; also allow arrow navigation inside lightbox
+  baguetteBox.run('#gh-gallery .tz-gallery, #hero', {noScrollbars:true, async:true});
+
+  S(`${imgs.length} image(s)`);
+}
+
+(async()=>{
+  try{
+    S("Loading…");
+    imgs = await list();
+    if(!imgs.length){S("No images found in repo path."); return;}
+    render();
+    S("");
+  }catch(e){console.error(e); S("Failed to load. Ensure repo is public and path is correct.");}
+})();
+</script>
 </body>
 </html>
